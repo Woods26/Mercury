@@ -21,9 +21,23 @@ int main (int argc, const char * argv[]) {
 	//is10_6 = NO;
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
     // insert code here...
-	NSString *setupPath = [NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding];
-	AppController *controller = [[AppController alloc] init];
-	[controller runSimulation:setupPath];
+    // create an app controller instance
+    AppController *controller = [[AppController alloc] init];
+    // if only one parameter was passed (as in a normal call from Crocus
+    if(argc == 2) {
+        NSString *setupPath = [NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding];
+        [controller runSimulation:setupPath];
+    }
+    // if two parameters were passed (if called from command line with custom output directory)
+    else if(argc == 3) {
+        NSString *setupPath = [NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding];
+        NSString *customOutputPath = [NSString stringWithCString:argv[2] encoding:NSUTF8StringEncoding];
+        [controller runSimulation:setupPath withCustomPath:customOutputPath];
+    }
+    else {
+        NSLog(@"Too many parameters previded. Usage: mercury <setupPath> or: mercury <setupPath> <customOutputPath>");
+        return 1;
+    }
 	// Clang suggests
 	[controller release];
 	[pool release];

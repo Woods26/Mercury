@@ -17,6 +17,9 @@ float dT;
 BOOL useGCD;
 extern HMOutput *gTime;
 NSDictionary *gCellListDict = nil;
+// true if output path set from command line
+BOOL outPathOveride;
+NSString *customOutputPath;
 
 @implementation AppController
 
@@ -249,17 +252,24 @@ NSDictionary *gCellListDict = nil;
 
 - (NSString*)defaultOutputPath
 {
-	NSString *temporaryDirectory;
+    if(outPathOveride) {
+        NSString *pathName = customOutputPath;
+        NSLog(@"Writing output to \"%@\"", pathName);
+        return pathName;
+    }
+    else {
+        NSString *temporaryDirectory;
 #if __APPLE__
-	temporaryDirectory = NSTemporaryDirectory();
+        temporaryDirectory = NSTemporaryDirectory();
 #endif
 #if __linux__
-	temporaryDirectory = @"~/tmp/";
-	temporaryDirectory = [temporaryDirectory stringByExpandingTildeInPath];
+        temporaryDirectory = @"~/tmp/";
+        temporaryDirectory = [temporaryDirectory stringByExpandingTildeInPath];
 #endif
-	NSString *pathName = [NSString stringWithFormat:@"%@/Mercury.txt", temporaryDirectory];
-	NSLog(@"Writing output to \"%@\"", pathName);
-	return pathName;
+        NSString *pathName = [NSString stringWithFormat:@"%@/Mercury.txt", temporaryDirectory];
+        NSLog(@"Writing output to \"%@\"", pathName);
+        return pathName;
+    }
 }
 
 - (void)awakeModel
@@ -364,6 +374,7 @@ NSDictionary *gCellListDict = nil;
 
 - (void)runSimulation:(NSString*)setupPath
 {
+    outPathOveride = FALSE;
 	
 #if __APPLE__
 	@try {
@@ -414,6 +425,63 @@ NSDictionary *gCellListDict = nil;
 	}
 #if __APPLE__
 	}
+#endif
+}
+
+- (void)runSimulation:(NSString*)setupPath withCustomPath:(NSString*)customPath
+{
+    customOutputPath = customPath;
+    outPathOveride = TRUE;
+    
+#if __APPLE__
+    @try {
+#endif
+        
+#if __linux__
+        NS_DURING
+#endif
+        [self getRunParameters:setupPath];
+        [self awakeModel];
+        [self establishStartDate];
+        time = 0;
+        if (useGCD) {
+            NSLog(@"Begin GCD rates and states");
+        } else {
+            NSLog(@"Begin rates and states");
+        }
+        
+        HMStepper *top = [steppers objectAtIndex:0];
+        NSRange range = NSMakeRange(1, [steppers count] - 1);
+        [top startWithPath:@"" andInferiors:[steppers subarrayWithRange:range]];
+        
+#if __linux__
+        NS_HANDLER
+        NSLog(@"%@: %@", [localException name], [localException reason]);
+        NS_ENDHANDLER
+#endif
+#if __APPLE__
+    }
+    @catch (NSException *e) {
+        NSLog(@"%@: %@", [e name], [e reason]);
+    }
+    
+    @finally {
+#endif
+        
+        printf("%d microseconds\n", time);
+        //		FILE* f = fopen("/Users/tslarkin/Desktop/time.txt", "a");
+        //		fprintf(f, "%d\n", time);
+        //		fclose(f);
+        NSLog(@"End");
+        NSValue *value;
+        FILE *file;
+        NSEnumerator *e = [[self openFiles] objectEnumerator];
+        while (value = [e nextObject]) {
+            file = [value pointerValue];
+            fclose(file);
+        }
+#if __APPLE__
+    }
 #endif
 }
 
